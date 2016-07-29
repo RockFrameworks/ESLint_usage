@@ -1,0 +1,491 @@
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+
+<script type="text/javascript" src="../script/framework/jquery-2.0.3.js"></script>
+<!--
+-->
+<title>Popup plugin in case of use</title>
+<link href="../css/popup.css" class="sty" rel="stylesheet"/>
+<script type="text/javascript" >
+	if( typeof Widget === 'undefined') {
+	Widget = window.Widget = {};
+};
+(function($) {
+	Widget.Popup = function(options) {
+		this.opts = $.extend(true,{}, Widget.Popup.defaults, options );
+		this.str = '';
+		this.mask = null;
+		this.self = null;
+		this.pageSize= this.opts.pageSize ;												// pageSize: 设置里每页好友的数量
+		this.subHeap = [];															// ids:[]提交好友的容器，可以用来装模糊搜索的子项，可以更改使用
+		this.searchHeap = null;														// 搜索出的结果，将之放在这个容器里面
+		this.init();
+	};
+	Widget.Popup.prototype = {
+		constructor: Widget.Popup,
+		init : function(){
+			var me = this;														// 初始化中间结构
+			this.str = '<div class="position"><div class="lt bg-wrapper"><div class="rt bg-wrapper">'+
+				'<h3 class="ht">Great options</h3><a class="shut"></a><h4 class="hf">hey！</h4>'+
+				'<div class="lb bg-wrapper"><div class="rb bg-wrapper">'+
+					'<form id="wrapper" name="ctnForm" target="_top" onsubmit="return function(){};">'+
+						'<div id="formWrp">'+
+							'<input type="text" name="iptTxt" id="iptTxt" size="30" value="search" '+
+								'onMouseOver="this.focus()" '+
+								'onBlur="if (value ==&#39;&#39;){value=&#39;search&#39;}" '+
+								'onFocus="this.select()" '+
+								'onClick="if(this.value==&#39;search&#39;)this.value=&#39;&#39;" />'+
+						'</div>'+
+						'<ul id="tabUl">'+
+							'<li><a class="tabA">all</a></li>'+
+							'<li><a class="tabA">filter01</a></li>'+
+							'<li><a class="tabA">filter02</a></li>'+
+							'<li><a class="tabA">filter03</a></li>'+
+						'</ul>'+
+						'<div id="ctn"></div><div id="smlCut"></div>'+
+						'<input type="submit" value="submit" id="iptSubBtm" />'+
+						'</div></div></div></div>'+
+					'</form></div>';
+			// 获得最终的中部html
+			this.self = $(this.str).appendTo(this.opts.parentNode).show();
+			this.fstLoad();
+			this.setTab();
+			this.search();
+			
+			$("#iptSubBtm").click(function(){
+				me.submit();
+			});
+			$(".shut").click(function(){
+				me.destroy(); 
+			});
+		},
+		fstLoad : function(){
+			if( this.opts.oRequest.config ){										// 不用发送请求的话，直接根据		"tab首选项"	 组合数据
+				this.opts.dataHeap = this.opts.oCbkData[ this.opts.oRequest.iFirst.iFstTab-1 ];
+			};
+			this.reloadHeap( this.opts.dataHeap );
+		},
+		search : function(){
+			var me = this;
+			var fsData = this.opts.oCbkData[0].data.fsData;
+			//if( $.browser.msie ) {													// $("#iptTxt").get(0).onpropertychange = chkValue() ;				
+				//$("	#iptTxt").get(0).attachEvent("onpropertychange",chkValue);		// IE浏览器 专用属性：onpropertychange 侦听值的改变，是属性改变，而不仅仅是value改变
+			//} else {
+				$("#iptTxt").get(0).addEventListener("input", chkValue, false ); 	// 其他浏览器专用。侦听onInput事件	绑定的函数不能带参数
+			//};																		// 点击之后调用：如没有数据，alert；如取到相同数据，显示好友；
+			function chkValue(){
+				var sVal = $("#iptTxt").val().toLowerCase();
+				me.searchHeap = [];												// 这个容器，就在这里用一用，其他地方不用
+				if( sVal.length >0 ){
+					for( var i=0,iLgth=fsData.length; i<iLgth; i++ ){
+						if( fsData[i].userName.toLowerCase().indexOf( sVal )>-1 ){
+							me.searchHeap.push( fsData[i] ) ;
+						};
+					};
+					$("#smlCut").hide();
+					me.domToHtml( me.searchHeap );
+				};
+			};
+		},
+		setTab : function(){														// 先要通过ajax请求得到一串好友数据，然后组合到tab项目里的结构里面；
+			var me = this, i, fsData = this.opts.oCbkData, obj;
+		    $( "#tabUl a:eq(0)" ).addClass("tabAL");							// $( "#tabUl a:eq(0)" ).css("background","#999");
+		    $("#tabUl li").click(function(){
+		    	i = $(this).index();
+				$( "#tabUl a" ).removeClass("tabAL").eq(i).addClass("tabAL");
+		    	obj = fsData[ i ];
+		    	me.reloadHeap( obj );
+		    });
+		},
+		reloadHeap : function(obj){													// 重置数据容器
+			this.opts.dataHeap = {} ;
+			this.opts.dataHeap = obj ;
+			this.splitData();
+		},
+		lodSmlCut : function( iTotalPages ){
+			var smallCutSize = this.opts.smallCutSize, iCurrent = 1, me = this;	// smallCutSize:smCut条数	;	iCurrent:初始在第一页
+			function selectPage(event) {
+				iCurrent = $(event.target).text();
+				me.splitData( iCurrent );
+				createSmlCut();
+			};
+			function createSmlCut() {
+				if (iTotalPages < 1 || smallCutSize < 1) {	return;	};				// 如果分页需要分页的数量少，就别理他
+				$("#smlCut").html("");
+				var start = iCurrent - Math.floor( smallCutSize/2 );
+				if (smallCutSize < iTotalPages) {									//限制开始页数，每页数小于总页数时
+					if (start < 1) {	start = 1;		} else if (start + smallCutSize > iTotalPages) {	start = iTotalPages - smallCutSize + 1;		}
+				} else {	start = 1;		}
+				var end = start + smallCutSize - 1;
+				if (end > iTotalPages) {	end = iTotalPages;		};				// 限制结束页数，当结束页数大于总页数时
+				var sSmlCut = "" ;
+				for (var i = start; i <= end; i++) {
+					i == iCurrent ?(sSmlCut = '<div class="nmSty hvSty">'+ i +'</div>' ) : (sSmlCut = '<div class="nmSty">' + i + "</div>" );
+					$("#smlCut").append(sSmlCut).show();
+				};
+				$(".nmSty").bind("click", selectPage).hover(						// 给所有项绑定事件
+					function(event){ $( obj = event.srcElement ? event.srcElement : event.target ).addClass("hvSty"); 	},		// 浏览器全兼容
+					function(event){ $( obj = event.srcElement ? event.srcElement : event.target ).removeClass("hvSty");}		// 使用event对象来绑定事件，确定是事件源dom
+				);
+				$(".hvSty").unbind("click").unbind("mouseenter").unbind("mouseleave");	// 给选定项解除绑定
+			};
+			createSmlCut();
+		},
+		splitData : function( i ){													// i值传进来，就把数据翻到第i页	i值不传进来，就分页并进入第一页
+			var me = this, fsDat, fsData ;										// fsDat是局部的容器
+			fsData = this.opts.dataHeap.data.fsData ;
+			if( typeof i != "undefined" && i != null ){								// 组合传进来的object来做数据分页
+				if( i>0){
+					fsDat = fsData.slice( (i-1)*me.pageSize, i*me.pageSize );			// 根据i值，给下面组合需要的分页数据
+				} else {	fsDat = fsData;		};
+			} else {	fsDat = fsData.slice( 0,me.pageSize );	};
+			me.domToHtml( fsDat );												// 默认当然是调用第一页的数据放到页面上去
+			var iTotalPages = Math.ceil( fsData.length/me.pageSize );
+			me.lodSmlCut( iTotalPages );											// iTotalPages: 总页数
+		},
+		domToHtml : function( oPageData ){											// oPageData为好友数据的数组
+			var me = this, sHeap = '', aArr = this.subHeap ;
+			for(var i in oPageData ){
+				sHeap += '<li class=""><a href="javascript:void(0);" name="' + oPageData[i].userId + '"><img src="'+ oPageData[i].picture +'" alt="'+ oPageData[i].userName +'" /><h4>'+ oPageData[i].userName +'</h4></a></li>';
+			};
+			$("#ctn").empty().html("<ul id='userUl'>"+ sHeap +"</ul>");
+			$("#userUl a").bind("click", function(){								// 判断name在提交数据堆中有没有，没有就加进去，有则减掉
+				if( aArr.join('').indexOf( $(this).attr("name") ) > -1 ){			// 检测是否已经存在搜索的数据
+					me.heapCut( $(this).attr("name") );							// 将当前数据减掉
+				} else {
+					me.plusToHeap( $(this).attr("name") );						// 将当前数据加到subHeap里面去
+				};
+			});
+			for( var i in aArr ) {	me.tglStyle( true,aArr[i] );		};			// 渲染页面时刷新数据池内元素对应的node，样式全部都有
+		},
+		tglStyle: function( bConf, uid ){											// 封装对每个好友链接样式的操作，可以分添加和减少样式两种，并传入需要修改样式的	name
+			var aArr1 = $("#userUl a") ;
+			for( var i in aArr1 ){
+				if ( aArr1[i].name == uid ) {
+					bConf ? $(aArr1[i]).addClass('hv') : $(aArr1[i]).removeClass('hv');		// bConf ? $(aArr1[i]).css("background","#ddd") : $(aArr1[i]).css("background","#fff");
+				};
+			};
+		},
+		plusToHeap: function( userId ){												// 点击链接，通过提取到的ID，把好友加到	subHeap 中去
+			this.subHeap.push( userId );
+			this.tglStyle( true, userId );
+		},
+		heapCut: function( userId ){												// 点击链接，通过提取到的ID，把	subHeap  中的好友减掉
+			this.subHeap.splice( chkIndex( userId, this.subHeap), 1 );
+			this.tglStyle( false, userId );
+			function chkIndex( str, arr){											// 传进去 userId， subHeap
+				for( var i in arr ){
+					if( str == arr[i] ){	return i;	};
+				};
+			};
+		},
+		setMask : function(){														// tab内容项弹出遮罩接口；
+			if(this.opts.oMark.config) {
+				this.mask = $("<div id='mask'></div>").css({
+					'opacity' : this.opts.oMark.fOpac,
+					'display' : 'block',
+					'z-index': 1000,
+					'width' : $( this.opts.oMark.parent ).width(),
+					'heigth': $( this.opts.oMark.parent ).height(),
+					'background' : this.opts.oMark.sColor + "url('" + this.opts.oMark.sBgImg + "')" + " no-repeat scroll center center;"
+				}).appendTo(this.opts.oMark.parent).show();
+			};
+		},
+		destroy:function(){														//销毁popbox
+             $(".position").remove();
+        },
+		submit: function(){															// 绑定发送好友请求操作 ???
+			if ( this.subHeap.length <= 0 )										// 如果没有好友选中/搜索后没有需要添加的好友；
+			{
+				alert("请最少选择一个互粉！");
+			} else{		alert( this.subHeap.length + "个数据已经提交！" );		};
+		},
+	};
+	Widget.Popup.defaults = {
+		parentNode : "body",
+		oRequest : {																// 是否通过外部请求，获得好友数据，然后组合成这种格式。config:true,为不通过发送请求而只使用现成的数据；
+			config : true,															// 如果为false，需要发送请求来获取好友数据
+			sType : "all", 															// config : false的情况下起作用	与下部首先发送请求的设置不相同
+			sUrl:"http://gpp-invite.fminutes.com/?platformUserId=1684794475&platformId=3&appId=1997051626&userId=3458764515505335403&languageId=1&gameId=5&platformCode=weiyouxi&moduleValidateHash=f6f6d4f5a507340af060228740863980e58cb491&method=invite.getExcludesIds", //发送请求的url	先做单步请求的，每个tab对应的相同，但每个平台不一样，需后端传过来。
+			iFirst: {	// 首先装载的tab项目:all:1;  naf:2;  af:3;  wyxf:4			// 初始化加载tab的某一项，传参到tab里面设置   同时加载里面先加载（不需发送请求，暂时不用设置）；
+				iFstTab: 4,															// 首先发送请求对应tab项目的位置
+				sFstMod: "wyxf"														// 初始请求方式有4种(all/naf/af/wyxf)中的一种 ，对应关系all:1;  naf:2;  af:3;  wyxf:4;
+			}
+		},
+		oCbkData:[{			// 发送请求后获得的数据堆，假定为与微游戏类似				// 第一个对应数据	all（最原始微游戏callback数据实例），后面的分别对应naf、aj、wyxf；
+			"errorCode":0,
+			"msg":"",
+			"data":{
+					"fsData":
+						  [ {	"userId":2473202452,												// 返回数据的用户id
+								"userName":"\u6025\u6d4b",											// 返回数据中每个人的姓名
+								"picture":"http:\/\/tp1.sinaimg.cn\/2473202452\/50\/0\/1"	},		// 返回数据中每个人的头像src
+							{	"userId":2552838090,
+								"userName":"rock_20111122",
+								"picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"	}	],
+					"dataSort":[{"name":"\u6240\u6709\u597d\u53cb","userId":[]}],
+					"count":2																		// 返回数据中好友数量
+					}
+		}],
+		dataHeap : {																// dataHeap类似	 oCbkData.data																
+					"config": true	,												// 开启分页操作的句柄
+					"fsData":[	{													// dataHeap.fsData = oCbkData.data.fsData
+																					// dataHeap.fsData[i].userName			
+								}													// dataHeap.fsData[i].picture
+							 ],
+					"count":2														// dataHeap.count = oCbkData.data.count
+		},
+		pageSize : 20,
+		smallCutSize : 9,
+		oMark : {																	// 加载缓冲动画
+			config : true,
+			parent : "#ctn",
+			fOpac : 0.4,
+			sColor : "#666",
+			sBgImg : "loading.gif"													// 可以是cdn相对路径或者是	传一个class名	(class里面包含这个背景图)
+		}
+	};
+})(jQuery);
+</script>
+<script type="text/javascript" >
+$(document).ready(function(){
+	// new Widget.pb();
+var temp = {
+		parentNode : "body",
+		oRequest : {																// 是否通过外部请求，获得好友数据，然后组合成这种格式。（假定都可以js发送ajax请求）
+			config : true,															// 是否不发送好友邀请来获取在线数据；如果为false，需要发送请求来获取好友数据
+			// sType : "all", 	
+			sUrl:"http://gpp-invite.fminutes.com/?platformUserId=1684794475&platformId=3&appId=1997051626&userId=3458764515505335403&languageId=1&gameId=5&platformCode=weiyouxi&moduleValidateHash=f6f6d4f5a507340af060228740863980e58cb491&method=invite.getExcludesIds", //发送请求的url	先做单步请求的，每个tab对应的相同，但每个平台不一样，需后端传过来。
+			iFirst: {	// 首先装载的tab项目:all:0;  naf:1;  af:2;  wyxf:3;			// 初始化加载tab的某一项，传参到tab里面设置   同时加载里面先加载（不需发送请求，暂时不用设置）；
+				iFstTab: 1,															// 首先发送请求对应tab项目的位置
+				sFstMod: "all"														// 初始请求方式有4种(all/naf/af/wyxf)中的一种 ，对应关系all:1;  naf:2;  af:3;  wyxf:4;
+			}
+		},
+		oCbkData:[{			// 发送请求后获得的数据堆，假定为与微游戏类似		// 第一个对应数据	all（最原始微游戏callback数据实例），后面的分别对应naf、aj、wyxf；
+			"errorCode":1,
+			"msg":"",
+			"data":{
+					"fsData":
+						  	[
+				{"userId":2552838090,"userName":"rock_01111120","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838091,"userName":"rock_02111121","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838092,"userName":"rock_03111122","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838093,"userName":"rock_04111123","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838094,"userName":"rock_05111124","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838095,"userName":"rock_06111125","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838096,"userName":"rock_07111126","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838097,"userName":"rock_08111127","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838098,"userName":"rock_09111128","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838099,"userName":"rock_10111129","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838100,"userName":"rock_11111130","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838101,"userName":"rock_12111131","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838102,"userName":"rock_13111132","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838103,"userName":"rock_14111133","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838104,"userName":"rock_15111134","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838105,"userName":"rock_16111135","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838106,"userName":"rock_17111136","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838107,"userName":"rock_18111137","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838108,"userName":"rock_19111138","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838109,"userName":"rock_20111139","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838110,"userName":"rock_21111140","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838111,"userName":"rock_22111141","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838112,"userName":"rock_23111142","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838113,"userName":"rock_24111143","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838114,"userName":"rock_25111144","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838115,"userName":"rock_26111145","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838116,"userName":"rock_27111146","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838117,"userName":"rock_28111147","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838118,"userName":"rock_29111148","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838119,"userName":"rock_30111149","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838120,"userName":"rock_31111150","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838121,"userName":"rock_32111151","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838122,"userName":"rock_33111152","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838123,"userName":"rock_34111153","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838124,"userName":"rock_35111154","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838125,"userName":"rock_36111155","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838126,"userName":"rock_37111156","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838127,"userName":"rock_38111157","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838128,"userName":"rock_39111158","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838129,"userName":"rock_40111159","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838130,"userName":"rock_41111160","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838131,"userName":"rock_42111161","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838132,"userName":"rock_43111162","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838133,"userName":"rock_44111163","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838134,"userName":"rock_45111164","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838135,"userName":"rock_46111165","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838136,"userName":"rock_47111166","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838137,"userName":"rock_48111167","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838138,"userName":"rock_49111166","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838139,"userName":"rock_50111167","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838140,"userName":"rock_41111168","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838141,"userName":"rock_42111169","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838142,"userName":"rock_43111170","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838143,"userName":"rock_44111171","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838144,"userName":"rock_45111172","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838145,"userName":"rock_46111173","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838146,"userName":"rock_47111174","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838147,"userName":"rock_48111175","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838148,"userName":"rock_49111176","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838149,"userName":"rock_50111177","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838150,"userName":"rock_41111178","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838151,"userName":"rock_42111179","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838152,"userName":"rock_43111180","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838153,"userName":"rock_44111181","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838154,"userName":"rock_45111182","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838155,"userName":"rock_46111183","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838156,"userName":"rock_47111184","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838157,"userName":"rock_48111185","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838158,"userName":"rock_49111186","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838159,"userName":"rock_50111187","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838160,"userName":"rock_41111190","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838161,"userName":"rock_42111191","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838162,"userName":"rock_43111192","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838163,"userName":"rock_44111193","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838164,"userName":"rock_45111194","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838165,"userName":"rock_46111195","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838166,"userName":"rock_47111196","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838167,"userName":"rock_48111197","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838168,"userName":"rock_49111198","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838169,"userName":"rock_50111199","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"}
+				],
+					"count":80																		// 返回数据中好友数量
+					}
+		},
+		{			// 发送请求后获得的数据堆，假定为与微游戏类似		// 第一个对应数据	all（最原始微游戏callback数据实例），后面的分别对应naf、aj、wyxf；
+			"errorCode":2,
+			"msg":"",
+			"data":{
+					"fsData":
+						  [ 				
+				{"userId":2552838090,"userName":"rock_01111120","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838091,"userName":"rock_02111121","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838092,"userName":"rock_03111122","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838093,"userName":"rock_04111123","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838094,"userName":"rock_05111124","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838095,"userName":"rock_06111125","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838096,"userName":"rock_07111126","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838097,"userName":"rock_08111127","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838098,"userName":"rock_09111128","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838099,"userName":"rock_10111129","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838100,"userName":"rock_11111130","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838101,"userName":"rock_12111131","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838102,"userName":"rock_13111132","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838103,"userName":"rock_14111133","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838104,"userName":"rock_15111134","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838105,"userName":"rock_16111135","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838106,"userName":"rock_17111136","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838107,"userName":"rock_18111137","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838108,"userName":"rock_19111138","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838109,"userName":"rock_20111139","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838110,"userName":"rock_21111140","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838111,"userName":"rock_22111141","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838112,"userName":"rock_23111142","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838113,"userName":"rock_24111143","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838114,"userName":"rock_25111144","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838115,"userName":"rock_26111145","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838116,"userName":"rock_27111146","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838117,"userName":"rock_28111147","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838118,"userName":"rock_29111148","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838119,"userName":"rock_30111149","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"}
+					],
+					"count":30																		// 返回数据中好友数量
+					}
+		},
+		{			// 发送请求后获得的数据堆，假定为与微游戏类似		// 第一个对应数据	all（最原始微游戏callback数据实例），后面的分别对应naf、aj、wyxf；
+			"errorCode":3,
+			"msg":"",
+			"data":{
+					"fsData":
+						  [ 				
+				{"userId":2552838120,"userName":"rock_31111150","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838121,"userName":"rock_32111151","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838122,"userName":"rock_33111152","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838123,"userName":"rock_34111153","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838124,"userName":"rock_35111154","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838125,"userName":"rock_36111155","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838126,"userName":"rock_37111156","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838127,"userName":"rock_38111157","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838128,"userName":"rock_39111158","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838129,"userName":"rock_40111159","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838130,"userName":"rock_41111160","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838131,"userName":"rock_42111161","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838132,"userName":"rock_43111162","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838133,"userName":"rock_44111163","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838134,"userName":"rock_45111164","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838135,"userName":"rock_46111165","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838136,"userName":"rock_47111166","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838137,"userName":"rock_48111167","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838138,"userName":"rock_49111166","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838139,"userName":"rock_50111167","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838140,"userName":"rock_41111168","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838141,"userName":"rock_42111169","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838142,"userName":"rock_43111170","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838143,"userName":"rock_44111171","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838144,"userName":"rock_45111172","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838145,"userName":"rock_46111173","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838146,"userName":"rock_47111174","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838147,"userName":"rock_48111175","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838148,"userName":"rock_49111176","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838149,"userName":"rock_50111177","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838150,"userName":"rock_41111178","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838151,"userName":"rock_42111179","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					],
+					"count":32																		// 返回数据中好友数量
+					}
+		},
+		{			// 发送请求后获得的数据堆，假定为与微游戏类似		// 第一个对应数据	all（最原始微游戏callback数据实例），后面的分别对应naf、aj、wyxf；
+			"errorCode":4,
+			"msg":"",
+			"data":{
+					"fsData":
+						  [ 				
+				{"userId":2552838152,"userName":"rock_43111180","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838153,"userName":"rock_44111181","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838154,"userName":"rock_45111182","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838155,"userName":"rock_46111183","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838156,"userName":"rock_47111184","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838157,"userName":"rock_48111185","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838158,"userName":"rock_49111186","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+				{"userId":2552838159,"userName":"rock_50111187","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838160,"userName":"rock_41111190","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838161,"userName":"rock_42111191","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838162,"userName":"rock_43111192","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838163,"userName":"rock_44111193","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838164,"userName":"rock_45111194","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838165,"userName":"rock_46111195","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838166,"userName":"rock_47111196","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838167,"userName":"rock_48111197","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838168,"userName":"rock_49111198","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"},
+					{"userId":2552838169,"userName":"rock_50111199","picture":"http:\/\/tp3.sinaimg.cn\/2552838090\/50\/0\/1"}
+					],
+					"count":18																		// 返回数据中好友数量
+					}
+		}],
+		dataHeap : {																// dataHeap类似	 oCbkData.data																
+					"config": true	,																// 开启分页操作的句柄
+					"fsData":[	{													// dataHeap.fsData = oCbkData.data.fsData
+																					// dataHeap.fsData[i].userName			
+								}													// dataHeap.fsData[i].picture
+							 ],
+					"count":2														// dataHeap.count = oCbkData.data.count
+		},
+		// subHeap : [],															// 勾选好友的容器，如果默认需要选中部分好友，可以更改使用
+		pageSize :10,
+		smallCutSize: 9,
+		oMark : {																	// 加载缓冲动画
+			config : false,
+			parent : "#ctn",
+			fOpac : 0.8,
+			sColor : "#666",
+			sBgImg : "loading.gif"													// 如果需要可配置，需要传进来；如不需要，可以是相对路径，比较麻烦
+		}
+	};
+	var ss = new Widget.Popup( temp );
+});
+</script>
+</head>
+<body style="height:640px;position:relative;">
+</body>
+</html>

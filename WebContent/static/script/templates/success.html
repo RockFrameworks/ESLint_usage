@@ -1,0 +1,21 @@
+<!--
+-->
+<script type="text/template" class="successTemp" >
+	<div id="mask"> </div>
+	<div class="success popup">
+		<h3 class="boderTopRed">
+			Congratulations! 
+		</h3>
+		<span class="close icon j_close">X</span>
+		<div class="messageDetails">
+			<p class="message">
+				<% if( isResponse ){ %>
+				Your information has been sent <span><%=fanName||'' %></span> successfully .
+				<% }else{ %>
+				Your sharing succeed .
+				<% } %>
+			</p>
+		</div>
+		<button class="btn send j_got"> Got it </button>
+	</div>
+</script>

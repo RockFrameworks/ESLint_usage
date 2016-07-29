@@ -1,0 +1,28 @@
+<script type="text/template" class="lineTips_tpl">
+    <div class="j_lineTip tipMask fs16" ><div>
+        <span class="round"></span>
+        <span class="errorMessage">
+        <% if (p==0){ %>
+            <%='手机号不能超过11位' %>
+        <%} else if (p==1){ %>
+            <%='请输入正确的手机号' %>
+        <%} else if (p==2) { %>
+            <%='请输入正确的验证码' %>
+        <%} else if( p==3 ){ %>
+            <%='密码格式不符合' %>
+        <%} else if( p==4 ){ %>
+            <%='请输入正确的验证码' %>
+        <%} else if( p==100 ){ %>
+            <%=content %>
+        <%} %>
+        <span>
+    </div></div>
+</script>
+
+<script type="text/template" class="error_tpl">
+    <div class="j_lineTip tipMask fs16" >
+        <div>
+            <span class="round"></span> <%=message %>
+        </div>
+    </div>
+</script>

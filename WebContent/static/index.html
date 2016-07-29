@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+		<title>Partners on the house</title>
+
+		<meta name="author" content="Rock Wang">
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimal-ui">
+
+		<!-- For syntax highlighting -->
+
+		<link rel="stylesheet" href="./css/normalize.css">
+		<link rel="stylesheet" href="./css/style.css">
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+		<style>
+		
+@-webkit-keyframes sliderightout {
+    from {
+        -webkit-transform: translateX(0px);
+        opacity: 1
+    }
+
+    to {
+        -webkit-transform: translateX(50%);
+        opacity: 0
+    }
+}
+
+@-webkit-keyframes slideleftin {
+    from {
+        -webkit-transform: translateX(-50%);
+        opacity: 0
+    }
+
+    to {
+        -webkit-transform: translateX(0px);
+        opacity: 1
+    }
+}
+
+@-webkit-keyframes slideleftout {
+    from {
+        -webkit-transform: translateX(0px);
+        opacity: 1
+    }
+
+    to {
+        -webkit-transform: translateX(-50%);
+        opacity: 0
+    }
+}
+
+@-webkit-keyframes sliderightin {
+    from {
+        -webkit-transform: translateX(50%);
+        opacity: 0
+    }
+
+    to {
+        -webkit-transform: translateX(0px);
+        opacity: 1
+    }
+}
+
+@-moz-keyframes sliderightout {
+    from {
+        -moz-transform: translateX(0px);
+        opacity: 1
+    }
+
+    to {
+        -moz-transform: translateX(50%);
+        opacity: 0
+    }
+}
+
+@-moz-keyframes slideleftin {
+    from {
+        -moz-transform: translateX(-50%);
+        opacity: 0
+    }
+
+    to {
+        -moz-transform: translateX(0px);
+        opacity: 1
+    }
+}
+
+@-moz-keyframes slideleftout {
+    from {
+        -moz-transform: translateX(0px);
+        opacity: 1
+    }
+
+    to {
+        -moz-transform: translateX(-50%);
+        opacity: 0
+    }
+}
+
+@-moz-keyframes sliderightin {
+    from {
+        -moz-transform: translateX(50%);
+        opacity: 0
+    }
+
+    to {
+        -moz-transform: translateX(0px);
+        opacity: 1
+    }
+}
+
+@keyframes sliderightout {
+    from {
+        transform: translateX(0px);
+        opacity: 1
+    }
+
+    to {
+        transform: translateX(50%);
+        opacity: 0
+    }
+}
+
+@keyframes slideleftin {
+    from {
+        transform: translateX(-50%);
+        opacity: 0
+    }
+
+    to {
+        transform: translateX(0px);
+        opacity: 1
+    }
+}
+
+@keyframes slideleftout {
+    from {
+        transform: translateX(0px);
+        opacity: 1
+    }
+
+    to {
+        transform: translateX(-50%);
+        opacity: 0
+    }
+}
+
+@keyframes sliderightin {
+    from {
+        transform: translateX(50%);
+        opacity: 0
+    }
+
+    to {
+        -webkit-transform: translateX(0px);
+        opacity: 1
+    }
+}
+
+.slideleftout {
+    -webkit-animation: slideleftout 350ms ease-in-out;
+    -moz-animation: slideleftout 350ms ease-in-out;
+    animation: slideleftout 350ms ease-in-out
+}
+
+.slideleftin {
+    -webkit-animation: slideleftin 350ms ease-in-out;
+    -moz-animation: slideleftin 350ms ease-in-out;
+    animation: slideleftin 350ms ease-in-out
+}
+
+.sliderightout {
+    -webkit-animation: sliderightout 350ms ease-in-out;
+    -moz-animation: sliderightout 350ms ease-in-out;
+    animation: sliderightout 350ms ease-in-out
+}
+
+.sliderightin {
+    -webkit-animation: sliderightin 350ms ease-in-out;
+    -moz-animation: sliderightin 350ms ease-in-out;
+    animation: sliderightin 350ms ease-in-out
+}
+
+.animatestart {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 300;
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden
+}
+
+		</style>
+	</head>
+	<body>
+		<div id="main">
+			<div class="main-frame">
+				<div class="main-viewport">
+					<div class="sub-viewport" id="id_viewport2" page-url="" style="display: block;">
+					</div>
+				</div>
+			</div>
+			<div class="main-state"> </div>
+		 </div>
+			
+		<script type="text/template" class="indexTemp">
+			<div class="container">
+				<div class="before"></div>
+				<span class="icon POH j_poh"> </span>
+			 </div>
+		</script>
+		<script type="text/template" class="POHTemp">
+			<div class="container">
+				<div class="before"></div>
+				<div class="offer none">
+					<h3 class="icon">
+						Partner on the house!
+					</h3>
+					<p>
+						<span class="name">James</span> is offering <span>one</span> ticket for a real fan to join him.
+					</p>
+					<button class="btn j_pick">Pick me!</button>
+				</div>
+			 </div>
+		</script>
+		
+		<div>
+		</div>
+		<div class="fragement hide"> </div>
+	<script src="./script/framework/jquery-2.0.3.js"></script>
+    <script src="./script/framework/underscore.js"></script>
+    <script src="./script/framework/backbone.js"></script>
+    <script src="./script/framework/require.js"></script>
+    <script src="./script/load.js?v=20150929"></script>
+	</body>
+</html>
