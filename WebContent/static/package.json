@@ -1,0 +1,22 @@
+{
+  "name": "eslint-config-stubhub",
+  "version": "1.0.1",
+  "description": "Linting config for StubHub",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.corp.ebay.com:Stubhub/eslint-config-stubhub.git"
+  },
+  "keywords": [
+    "eslint",
+    "eslintconfig",
+    "StubHub",
+    "lint",
+    "linting"
+  ],
+  "author": "Oliver Oxenham",
+  "license": "ISC"
+}
