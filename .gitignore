@@ -1,0 +1,39 @@
+ #
+#####################
+build-*
+
+# node modules #
+################
+node_modules*
+
+# app-common folder #
+################
+app-common*
+
+# log files #
+#############
+*.log
+*.log.*
+
+# temporary files #
+###################
+*.tmp
+*.tmp.*
+
+# test output files #
+#####################
+test-out*
+
+# OS generated files #
+######################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+ehthumbs.db
+Thumbs.db
+.idea*
+
+

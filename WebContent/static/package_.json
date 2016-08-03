@@ -4,7 +4,8 @@
   "description": "Linting config for StubHub",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
   },
   "repository": {
     "type": "git",
@@ -18,5 +19,9 @@
     "linting"
   ],
   "author": "Oliver Oxenham",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "connect": "^2.4.6"
+  },
+  "devDependencies": {}
 }
